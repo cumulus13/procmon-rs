@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 use std::io::{Read, Write as _};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -597,16 +597,88 @@ impl Monitor {
     }
 }
 
+// ---------- Config discovery ----------
+
+/// Per-user configuration directory (`%APPDATA%` on Windows, `$XDG_CONFIG_HOME` or `~/.config` elsewhere).
+fn user_config_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        std::env::var_os("APPDATA").map(PathBuf::from)
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+    }
+}
+
+fn user_config_file() -> Option<PathBuf> {
+    user_config_dir().map(|d| d.join("procmon").join("procmon.ini"))
+}
+
+/// Locations searched (in order) when `-c` is not given.
+fn config_candidates() -> Vec<(PathBuf, &'static str)> {
+    let mut v = Vec::new();
+    if let Some(p) = std::env::var_os("PROCMON_CONFIG").filter(|p| !p.is_empty()) {
+        v.push((PathBuf::from(p), "$PROCMON_CONFIG"));
+    }
+    v.push((PathBuf::from("procmon.ini"), "current directory"));
+    if let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(Path::to_path_buf))
+    {
+        v.push((dir.join("procmon.ini"), "next to the executable"));
+    }
+    if let Some(f) = user_config_file() {
+        v.push((f, "user config directory"));
+    }
+    v
+}
+
+fn write_template(path: &Path) -> Result<(), String> {
+    if path.exists() {
+        return Err(format!(
+            "{} already exists (delete it or choose another name)",
+            path.display()
+        ));
+    }
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Cannot create {}: {e}", parent.display()))?;
+    }
+    std::fs::write(path, TEMPLATE).map_err(|e| format!("Error saving template: {e}"))
+}
+
+fn create_template_or_exit(path: &Path) {
+    match write_template(path) {
+        Ok(()) => {
+            println!(
+                "{GREEN}✅ Template config saved to: {}{RESET}",
+                path.display()
+            );
+            println!("\n📝 Next steps:\n   1. Edit the config file and set your process paths");
+            println!("   2. Run: procmon -c \"{}\"", path.display());
+        }
+        Err(e) => {
+            println!("{RED}❌ {e}{RESET}");
+            std::process::exit(1);
+        }
+    }
+}
+
 // ---------- CLI ----------
 #[derive(Parser)]
 #[command(
     name = "procmon",
-    about = "🔍 Process Monitor & Auto-Restart with Notifications"
+    about = "🔍 Process Monitor & Auto-Restart with Notifications",
+    after_help = "Config lookup order when -c is not given:\n  1. $PROCMON_CONFIG\n  2. ./procmon.ini\n  3. procmon.ini next to the executable\n  4. <user config dir>/procmon/procmon.ini"
 )]
 struct Cli {
-    /// INI config file path
-    #[arg(short, long, default_value = "procmon.ini")]
-    config: String,
+    /// INI config file path (default: search the locations listed below)
+    #[arg(short, long)]
+    config: Option<String>,
 
     /// Check interval in seconds (overrides config)
     #[arg(short, long)]
@@ -619,6 +691,10 @@ struct Cli {
     /// Create template config file
     #[arg(long, value_name = "FILENAME")]
     create_config: Option<String>,
+
+    /// Create a template config in the user config directory and exit
+    #[arg(long)]
+    init: bool,
 }
 
 fn main() {
@@ -628,26 +704,54 @@ fn main() {
     let cli = Cli::parse();
 
     if let Some(file) = cli.create_config {
-        match std::fs::write(&file, TEMPLATE) {
-            Ok(_) => {
-                println!("{GREEN}✅ Template config saved to: {file}{RESET}");
-                println!("\n📝 Next steps:\n   1. Edit the config file and set your process paths\n   2. Run: procmon -c {file}");
+        create_template_or_exit(Path::new(&file));
+        return;
+    }
+
+    if cli.init {
+        match user_config_file() {
+            Some(path) => create_template_or_exit(&path),
+            None => {
+                println!("{RED}❌ Cannot determine the user config directory{RESET}");
+                std::process::exit(1);
             }
-            Err(e) => println!("{RED}❌ Error saving template: {e}{RESET}"),
         }
         return;
     }
 
-    if !Path::new(&cli.config).exists() {
-        println!("{RED}❌ Config file not found: {}{RESET}", cli.config);
-        println!(
-            "\n💡 Create a template config with:\n   {CYAN}procmon --create-config {}{RESET}",
-            cli.config
-        );
-        std::process::exit(1);
-    }
+    let config_path: PathBuf = match cli.config {
+        Some(c) => {
+            let p = PathBuf::from(c);
+            if !p.exists() {
+                println!("{RED}❌ Config file not found: {}{RESET}", p.display());
+                println!(
+                    "\n💡 Create a template config with:\n   {CYAN}procmon --create-config {}{RESET}",
+                    p.display()
+                );
+                std::process::exit(1);
+            }
+            p
+        }
+        None => {
+            let candidates = config_candidates();
+            match candidates.iter().find(|(p, _)| p.is_file()) {
+                Some((p, _)) => p.clone(),
+                None => {
+                    println!("{RED}❌ No config file found. Searched:{RESET}");
+                    for (p, label) in &candidates {
+                        println!("   - {} {DIM}({label}){RESET}", p.display());
+                    }
+                    println!(
+                        "\n💡 Create one with:\n   {CYAN}procmon --init{RESET}                        {DIM}(user config directory){RESET}\n   {CYAN}procmon --create-config procmon.ini{RESET}  {DIM}(current directory){RESET}"
+                    );
+                    std::process::exit(1);
+                }
+            }
+        }
+    };
+    let config_str = config_path.to_string_lossy().into_owned();
 
-    let mut mon = match Monitor::load(&cli.config) {
+    let mut mon = match Monitor::load(&config_str) {
         Ok(m) => m,
         Err(e) => {
             println!("{RED}❌ {e}{RESET}");

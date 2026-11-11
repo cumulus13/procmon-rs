@@ -43,3 +43,15 @@ ANSWER*.md
 PLAN*.md
 QUESTION*.md
 ANSWER*.html
+# PT backup directory
+.pt/
+
+# Added entries (8 items)
+downloads/
+download/
+gitignore_backup/
+gitignore_backups/
+src/tmp*
+tmp*
+PLAN.md
+CLAUDE.md

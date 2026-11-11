@@ -26,7 +26,9 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             archive: zip
-          - os: macos-13
+          # macos-13 (Intel) runners were retired, so jobs targeting them wait forever.
+          # Cross-compile the Intel build on the Apple Silicon runner instead.
+          - os: macos-latest
             target: x86_64-apple-darwin
             archive: tar.gz
           - os: macos-latest

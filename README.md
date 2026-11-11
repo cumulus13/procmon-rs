@@ -11,7 +11,7 @@ Process Monitor & Auto-Restart — a Rust port of the original Python tool, buil
 - INI configuration (compatible with the Python version)
 - **Growl** (GNTP) and **desktop** (native) notifications
 - Terminal dashboard: uptime, restart count, memory usage, per-process status
-- Cross-platform: Windows, Linux, macOS
+- Cross-platform: Windows, Linux (glibc and static musl), macOS
 - No garbage collector; a single small binary with no runtime
 
 ## Why Rust?
@@ -31,6 +31,13 @@ The Python version's memory usage grew steadily over time. In the Rust version:
 
 Download the archive for your platform from the [Releases](https://github.com/cumulus13/procmon/releases) page and extract it.
 
+| Platform | Archive suffix |
+|---|---|
+| Linux x86_64 (glibc) | `x86_64-unknown-linux-gnu.tar.gz` |
+| Linux x86_64 (static, musl / Alpine) | `x86_64-unknown-linux-musl.tar.gz` |
+| Windows x86_64 | `x86_64-pc-windows-msvc.zip` |
+| macOS Apple Silicon | `aarch64-apple-darwin.tar.gz` |
+
 ### From source
 
 ```bash
@@ -38,6 +45,15 @@ git clone https://github.com/cumulus13/procmon.git
 cd procmon
 cargo build --release
 # binary: target/release/procmon
+```
+
+Static Linux binary (musl, runs on Alpine and any other distro):
+
+```bash
+rustup target add x86_64-unknown-linux-musl
+sudo apt-get install -y musl-tools   # Debian/Ubuntu
+cargo build --release --target x86_64-unknown-linux-musl
+# binary: target/x86_64-unknown-linux-musl/release/procmon
 ```
 
 Without desktop notifications (smaller binary):
@@ -49,10 +65,16 @@ cargo build --release --no-default-features
 ## Usage
 
 ```bash
-# Create a template config
+# Create a template config in the user config directory
+procmon --init
+
+# Or create one at a specific path
 procmon --create-config procmon.ini
 
-# Start monitoring
+# Start monitoring (config is found automatically)
+procmon
+
+# Or use an explicit config file
 procmon -c procmon.ini
 
 # Custom check interval (seconds)
@@ -64,12 +86,33 @@ procmon -c procmon.ini -l
 
 | Option | Description |
 |---|---|
-| `-c, --config <FILE>` | Path to the INI config (default: `procmon.ini`) |
+| `-c, --config <FILE>` | Path to the INI config (default: automatic lookup, see below) |
 | `-i, --interval <SEC>` | Check interval, overrides the value in the config |
 | `-l, --list` | Print status and exit |
-| `--create-config <FILE>` | Write a template config file |
+| `--create-config <FILE>` | Write a template config to the given path |
+| `--init` | Write a template config to the user config directory |
+
+Existing files are never overwritten by `--create-config` or `--init`.
 
 Press `Ctrl+C` to stop. Processes that were started by the monitor are **not** killed when the monitor exits.
+
+## Config file lookup
+
+When `-c` is not given, `procmon` searches these locations in order and uses the first file it finds, so it works when called from any directory (for example from your `PATH`):
+
+1. `$PROCMON_CONFIG` (environment variable)
+2. `./procmon.ini` (current directory)
+3. `procmon.ini` next to the executable
+4. User config directory:
+   - Windows: `%APPDATA%\procmon\procmon.ini`
+   - Linux/macOS: `$XDG_CONFIG_HOME/procmon/procmon.ini` or `~/.config/procmon/procmon.ini`
+
+Quick start for a global install:
+
+```bash
+procmon --init     # creates the template in the user config directory
+procmon            # finds it automatically from any directory
+```
 
 ## Configuration
 

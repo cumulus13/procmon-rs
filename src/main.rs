@@ -90,7 +90,11 @@ impl Notifier {
         let sec = ini.section(Some("Notifications"))?;
         let use_growl = parse_bool(sec.get("use_growl"), false);
         let use_desktop = parse_bool(sec.get("use_plyer"), false);
-        let host = sec.get("growl_host").unwrap_or("localhost").trim().to_string();
+        let host = sec
+            .get("growl_host")
+            .unwrap_or("localhost")
+            .trim()
+            .to_string();
         let port: u16 = sec
             .get("growl_port")
             .and_then(|p| p.trim().parse().ok())
@@ -161,16 +165,31 @@ impl Notifier {
     }
 
     fn stopped(&self, name: &str) {
-        self.send("⚠️ Process Stopped", &format!("{name} has stopped running"), 1, false);
+        self.send(
+            "⚠️ Process Stopped",
+            &format!("{name} has stopped running"),
+            1,
+            false,
+        );
     }
     fn started(&self, name: &str, pid: u32) {
-        self.send("🚀 Process Started", &format!("{name} started (PID: {pid})"), 0, false);
+        self.send(
+            "🚀 Process Started",
+            &format!("{name} started (PID: {pid})"),
+            0,
+            false,
+        );
     }
     fn error(&self, name: &str, err: &str) {
         self.send("❌ Process Error", &format!("{name}: {err}"), 2, true);
     }
     fn monitor_started(&self, n: usize) {
-        self.send("🔍 Process Monitor Started", &format!("Monitoring {n} process(es)"), 0, false);
+        self.send(
+            "🔍 Process Monitor Started",
+            &format!("Monitoring {n} process(es)"),
+            0,
+            false,
+        );
     }
 }
 
@@ -269,7 +288,9 @@ fn start_process(m: &mut Monitored, notifier: Option<&Notifier>) -> bool {
     if let Some(dir) = m.working_dir.as_deref().filter(|d| !d.is_empty()) {
         cmd.current_dir(dir);
     }
-    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
     #[cfg(windows)]
     {
@@ -471,19 +492,35 @@ impl Monitor {
                 if n.desktop {
                     v.push("Desktop");
                 }
-                if v.is_empty() { "Disabled".to_string() } else { v.join(", ") }
+                if v.is_empty() {
+                    "Disabled".to_string()
+                } else {
+                    v.join(", ")
+                }
             }
             None => "Disabled".to_string(),
         };
 
         let _ = writeln!(o, "{BOLD}{CYAN}📈 Statistics{RESET}");
-        let _ = writeln!(o, "  Uptime        : {YELLOW}{:02}h {:02}m {:02}s{RESET}", up / 3600, (up % 3600) / 60, up % 60);
+        let _ = writeln!(
+            o,
+            "  Uptime        : {YELLOW}{:02}h {:02}m {:02}s{RESET}",
+            up / 3600,
+            (up % 3600) / 60,
+            up % 60
+        );
         let _ = writeln!(o, "  Processes     : {YELLOW}{}{RESET}", self.procs.len());
-        let _ = writeln!(o, "  Total Restarts: {YELLOW}{}{RESET}", self.total_restarts);
+        let _ = writeln!(
+            o,
+            "  Total Restarts: {YELLOW}{}{RESET}",
+            self.total_restarts
+        );
         let _ = writeln!(
             o,
             "  Last Check    : {YELLOW}{}{RESET}",
-            self.last_check.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()).unwrap_or_else(|| "Never".into())
+            self.last_check
+                .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string())
+                .unwrap_or_else(|| "Never".into())
         );
         let _ = writeln!(o, "  Memory        : {YELLOW}{mem_mb:.1} MB{RESET}");
         let _ = writeln!(o, "  Config        : {YELLOW}{}{RESET}", self.config_path);
@@ -491,7 +528,11 @@ impl Monitor {
         let _ = writeln!(o, "  {DIM}Press Ctrl+C to stop{RESET}\n");
 
         let _ = writeln!(o, "{BOLD}📊 Process Monitor Status{RESET}");
-        let _ = writeln!(o, "  {BOLD}{:<20} {:<12} {:>8} {:>9} {:>9}{RESET}", "Name", "Status", "PID", "Restarts", "Last Seen");
+        let _ = writeln!(
+            o,
+            "  {BOLD}{:<20} {:<12} {:>8} {:>9} {:>9}{RESET}",
+            "Name", "Status", "PID", "Restarts", "Last Seen"
+        );
         for m in &self.procs {
             let (color, label) = match m.status {
                 Status::Running => (GREEN, "● Running"),
@@ -558,7 +599,10 @@ impl Monitor {
 
 // ---------- CLI ----------
 #[derive(Parser)]
-#[command(name = "procmon", about = "🔍 Process Monitor & Auto-Restart with Notifications")]
+#[command(
+    name = "procmon",
+    about = "🔍 Process Monitor & Auto-Restart with Notifications"
+)]
 struct Cli {
     /// INI config file path
     #[arg(short, long, default_value = "procmon.ini")]
@@ -578,7 +622,9 @@ struct Cli {
 }
 
 fn main() {
-    let _ = crossterm::ansi_support::supports_ansi(); // enables VT mode on Windows
+    // Enable ANSI/VT processing on Windows consoles (module only exists on Windows)
+    #[cfg(windows)]
+    let _ = crossterm::ansi_support::supports_ansi();
     let cli = Cli::parse();
 
     if let Some(file) = cli.create_config {
@@ -594,7 +640,10 @@ fn main() {
 
     if !Path::new(&cli.config).exists() {
         println!("{RED}❌ Config file not found: {}{RESET}", cli.config);
-        println!("\n💡 Create a template config with:\n   {CYAN}procmon --create-config {}{RESET}", cli.config);
+        println!(
+            "\n💡 Create a template config with:\n   {CYAN}procmon --create-config {}{RESET}",
+            cli.config
+        );
         std::process::exit(1);
     }
 

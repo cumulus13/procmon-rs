@@ -1,0 +1,32 @@
+; ========================================
+; Process Monitor Configuration File
+; ========================================
+;
+; Section name = display name in the monitor
+; exe_path     = full path to executable (required)
+; args         = command line arguments (optional)
+; working_dir  = working directory (optional, default: folder of exe)
+; enabled      = yes/no
+
+[Settings]
+; Check interval in seconds
+check_interval = 5
+
+[Notifications]
+use_growl = no
+use_plyer = yes
+growl_host = localhost
+growl_port = 23053
+growl_password =
+growl_icon =
+
+[Nginx]
+exe_path = /usr/sbin/nginx
+args = -g "daemon off;"
+enabled = yes
+
+[Steam]
+exe_path = C:\Program Files (x86)\Steam\steam.exe
+args = -silent
+working_dir = C:\Program Files (x86)\Steam
+enabled = no

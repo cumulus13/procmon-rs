@@ -1,0 +1,28 @@
+[package]
+name = "procmon"
+version = "0.1.1"
+edition = "2021"
+authors = ["Hadi Cahyadi <cumulus13@gmail.com>"]
+description = "Process Monitor & Auto-Restart (Rust port, low memory)"
+license = "MIT"
+
+[features]
+default = ["desktop-notify"]
+desktop-notify = ["dep:notify-rust"]
+
+[dependencies]
+sysinfo = "0.33"
+rust-ini = "0.21"
+clap = { version = "4", features = ["derive"] }
+chrono = "0.4"
+ctrlc = "3"
+shell-words = "1"
+crossterm = "0.28"
+notify-rust = { version = "4", optional = true }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

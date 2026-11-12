@@ -58,7 +58,9 @@ jobs:
         run: cargo build --release --target x86_64-unknown-linux-musl
       - name: Verify static binary
         run: |
-          file target/x86_64-unknown-linux-musl/release/procmon
-          ldd target/x86_64-unknown-linux-musl/release/procmon 2>&1 | grep -q "not a dynamic executable"
+          out=$(file target/x86_64-unknown-linux-musl/release/procmon)
+          echo "$out"
+          # matches both "statically linked" and "static-pie linked"
+          echo "$out" | grep -Eq "statically linked|static-pie linked"
       - name: Smoke test
         run: ./target/x86_64-unknown-linux-musl/release/procmon --create-config "$RUNNER_TEMP/procmon-test.ini"

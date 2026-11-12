@@ -5,6 +5,11 @@ Process Monitor & Auto-Restart — a Rust port of the original Python tool, buil
 ![CI](https://github.com/cumulus13/procmon/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/cumulus13/refs/heads/master/procmon-rs/logo.png" width="80%" alt="Powered by">
+</p>
+
+
 ## Features
 
 - Monitors multiple processes and automatically restarts them when they stop

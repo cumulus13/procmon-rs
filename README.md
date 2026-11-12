@@ -6,7 +6,7 @@ Process Monitor & Auto-Restart — a Rust port of the original Python tool, buil
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/cumulus13/refs/heads/master/procmon-rs/logo.png" width="80%" alt="Powered by">
+  <img src="https://raw.githubusercontent.com/cumulus13/procmon-rs/refs/heads/master/logo.png" width="80%" alt="Powered by">
 </p>
 
 
